@@ -60,7 +60,6 @@ interface WranglerConfig {
 		pattern: string;
 		custom_domain: boolean;
         zone_id?: string;
-        zone_name?: string;
 	}>;
 	vars?: {
 		TEMPLATES_REPOSITORY?: string;
@@ -1003,7 +1002,6 @@ class CloudflareDeploymentManager {
 				pattern: string;
 				custom_domain: boolean;
 				zone_id?: string;
-				zone_name?: string;
 			}>;
 			const existingWildcardRoute = config.routes?.find(route => !route.custom_domain);
 
@@ -1012,15 +1010,11 @@ class CloudflareDeploymentManager {
 			const wildcardZoneId = (customPreviewDomain && previewZoneDetectionSuccess && previewZoneId) 
 				? previewZoneId 
 				: (zoneDetectionSuccess && zoneId ? zoneId : undefined);
-			const wildcardZoneName = (customPreviewDomain && previewZoneDetectionSuccess && previewZoneName)
-				? previewZoneName
-				: (zoneDetectionSuccess && zoneName ? zoneName : undefined);
 
 			const wildcardRoute: {
 				pattern: string;
 				custom_domain: boolean;
 				zone_id?: string;
-				zone_name?: string;
 			} = {
 				pattern: `*${wildcardDomain}/*`,
 				custom_domain: false,
@@ -1033,21 +1027,10 @@ class CloudflareDeploymentManager {
 				console.log(`   Wildcard Domain: ${wildcardDomain}`);
 				console.log(`   Wildcard Zone ID: ${wildcardZoneId}`);
 				wildcardRoute.zone_id = wildcardZoneId;
-				if (wildcardZoneName) {
-					wildcardRoute.zone_name = wildcardZoneName;
-				}
 			} else {
-				const existingZoneId = existingWildcardRoute && existingWildcardRoute.zone_id;
-				const existingZoneName = existingWildcardRoute && existingWildcardRoute.zone_name;
-				if (existingZoneId) {
-					wildcardRoute.zone_id = existingZoneId;
-				}
-				if (existingZoneName) {
-					wildcardRoute.zone_name = existingZoneName;
-				}
-				console.log(
-					`📋 Using fallback wildcard route configuration (zone detection ${zoneDetectionSuccess ? 'returned no zone' : 'failed'})`
-				);
+                // Fatal error
+                console.error(`Failed to detect zone for custom domain ${customDomain}. Make sure the domain is properly configured in Cloudflare.`);
+                throw new Error(`Failed to detect zone for custom domain ${customDomain}`);
 			}
 
 			expectedRoutes = [
@@ -1081,13 +1064,6 @@ class CloudflareDeploymentManager {
 						needsUpdate = true;
 						break;
 					}
-
-					const actualZoneName = (actual && (actual as any).zone_name) ?? null;
-					const expectedZoneName = expected.zone_name ?? null;
-					if (actualZoneName !== expectedZoneName) {
-						needsUpdate = true;
-						break;
-					}
 				}
 			}
 
@@ -1109,9 +1085,6 @@ class CloudflareDeploymentManager {
 				const infoParts = [`custom_domain: ${route.custom_domain}`];
 				if (route.zone_id) {
 					infoParts.push(`zone_id: ${route.zone_id}`);
-				}
-				if (route.zone_name) {
-					infoParts.push(`zone_name: ${route.zone_name}`);
 				}
 				return `Route ${index + 1}: ${route.pattern} (${infoParts.join(', ')})`;
 			});
